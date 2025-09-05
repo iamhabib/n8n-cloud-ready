@@ -1,0 +1,15 @@
+services:
+  n8n:
+    image: n8nio/n8n
+    restart: unless-stopped
+    ports:
+      - "${CONTAINER_PORT}:5678"
+    environment:
+      - TZ=${TIMEZONE}
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=password
+      - N8N_HOST=${HOST_URL}
+      - WEBHOOK_URL=${PROTOCOL}://${HOST_URL}/
+    volumes:
+      - ./n8n_data:/home/node/.n8n
