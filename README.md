@@ -10,6 +10,11 @@ You can also run n8n using Docker:
 docker-compose up -d
 ```
 
+For multiple worker
+```bash
+docker-compose up -d --scale worker=3
+```
+
 ## Usage
 
 - Access the web UI at [http://localhost:5678](http://localhost:5678)
