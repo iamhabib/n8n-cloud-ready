@@ -6,10 +6,44 @@ services:
       - "${CONTAINER_PORT}:5678"
     environment:
       - TZ=${TIMEZONE}
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=password
       - N8N_HOST=${HOST_URL}
       - WEBHOOK_URL=${PROTOCOL}://${HOST_URL}/
+
+      # Execution Settings
+      - EXECUTIONS_MODE=queue
+      - EXECUTIONS_PROCESS=${EXECUTIONS_PROCESS}
+      - EXECUTIONS_CONCURRENCY=${EXECUTIONS_CONCURRENCY}
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
+
+      # Redis Settings
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
     volumes:
       - ./n8n_data:/home/node/.n8n
+    depends_on:
+      - redis
+
+  worker:
+    image: n8nio/n8n
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE}
+      - EXECUTIONS_MODE=queue
+      - EXECUTIONS_PROCESS=${EXECUTIONS_PROCESS}
+      - EXECUTIONS_CONCURRENCY=${EXECUTIONS_CONCURRENCY}
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    depends_on:
+      - redis
+    command: worker
+
+  redis:
+    image: redis:6.2.14
+    restart: unless-stopped
