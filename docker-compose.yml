@@ -129,6 +129,6 @@ services:
 
 volumes:
   n8n_data:
-    name: n8n_data
+    name: ${COMPOSE_PROJECT_NAME}_n8n_data
   postgres_data:
-    name: postgres_data
+    name: ${COMPOSE_PROJECT_NAME}_postgres_data
