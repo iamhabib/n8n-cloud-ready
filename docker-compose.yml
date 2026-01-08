@@ -1,37 +1,57 @@
+version: "3.9"
+
 services:
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:2.2.4
     container_name: ${COMPOSE_PROJECT_NAME}_main
     restart: unless-stopped
     ports:
       - "${CONTAINER_PORT}:5678"
+
     environment:
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      # Core
+      - TZ=${TIMEZONE}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+
+      # Auth
       - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-      - TZ=${TIMEZONE}
+
+      # Host
       - N8N_HOST=${HOST_URL}
       - WEBHOOK_URL=${PROTOCOL}://${HOST_URL}/
+
+      # Queue mode
       - EXECUTIONS_MODE=queue
-      - EXECUTIONS_CONCURRENCY=${EXECUTIONS_CONCURRENCY}
+
+      # IMPORTANT: protects main process
+      - N8N_CONCURRENCY_PRODUCTION_LIMIT=${EXECUTIONS_CONCURRENCY}
+
+      # Execution data
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
       - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
       - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
-      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
-      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+
+      # Security
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
+
+      # Database
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - DB_POSTGRESDB_USER=${POSTGRES_USER}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+
+      # Queue (Redis)
       - QUEUE_BULL_REDIS_HOST=redis
       - QUEUE_BULL_REDIS_PORT=6379
+
     volumes:
       - n8n_data:/home/node/.n8n
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,47 +59,56 @@ services:
         condition: service_healthy
 
   worker:
-    image: n8nio/n8n
+    image: n8nio/n8n:2.2.4
     restart: unless-stopped
+    command: worker --concurrency=${EXECUTIONS_CONCURRENCY}
+
     environment:
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - TZ=${TIMEZONE}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - EXECUTIONS_MODE=queue
-      - EXECUTIONS_CONCURRENCY=${EXECUTIONS_CONCURRENCY}
+
+      # Execution data
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
       - EXECUTIONS_DATA_SAVE_ON_ERROR=${EXECUTIONS_DATA_SAVE_ON_ERROR}
       - EXECUTIONS_DATA_MAX_AGE=${EXECUTIONS_DATA_MAX_AGE}
-      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
-      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+
+      # Security
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
+
+      # Database
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - DB_POSTGRESDB_USER=${POSTGRES_USER}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+
+      # Queue
       - QUEUE_BULL_REDIS_HOST=redis
       - QUEUE_BULL_REDIS_PORT=6379
+
     volumes:
       - n8n_data:/home/node/.n8n
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: worker
 
   postgres:
     image: postgres:15
     container_name: ${COMPOSE_PROJECT_NAME}_postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
@@ -90,7 +119,8 @@ services:
     image: redis:6.2.14
     container_name: ${COMPOSE_PROJECT_NAME}_redis
     restart: unless-stopped
-    command: redis-server --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory ${REDIS_MAXMEMORY} --maxmemory-policy allkeys-lru
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -102,8 +132,3 @@ volumes:
     name: n8n_data
   postgres_data:
     name: postgres_data
-
-networks:
-  mynet:
-    driver: bridge
-    name: ${COMPOSE_PROJECT_NAME}_network
