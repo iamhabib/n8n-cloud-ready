@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   n8n:
-    image: n8nio/n8n:2.2.4
+    image: ${N8N_DOCKER_IMAGE}
     container_name: ${COMPOSE_PROJECT_NAME}_main
     restart: unless-stopped
     ports:
@@ -59,7 +59,8 @@ services:
         condition: service_healthy
 
   worker:
-    image: n8nio/n8n:2.2.4
+    image: ${N8N_DOCKER_IMAGE}
+    container_name: ${COMPOSE_PROJECT_NAME}_worker
     restart: unless-stopped
     command: worker --concurrency=${EXECUTIONS_CONCURRENCY}
 
